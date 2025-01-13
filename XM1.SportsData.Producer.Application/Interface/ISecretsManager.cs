@@ -9,6 +9,5 @@ namespace XM1.SportsData.Producer.Application.Interface
     public interface ISecretsManager
     {
         T GetSecret<T>(string secretName);
-        string GetConnectionString(string secretName);
     }
 }

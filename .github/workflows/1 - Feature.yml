@@ -1,0 +1,55 @@
+name: Criar Pull Request Automática
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+
+jobs:
+  create-pull-request:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Git
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+
+      - name: Criar Pull Request
+        id: cpr
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: development
+          title: 'feature: ${{ github.ref_name }}'
+          body: |
+            Pull request automática criada a partir da branch ${{ github.ref_name }}.
+            
+            Por favor, revise as alterações e faça merge se estiver tudo correto.
+          labels: feature, automated-pr
+          branch: ${{ github.ref_name }}
+          delete-branch: false
+
+      - name: Verificar criação da Pull Request
+        if: steps.cpr.outputs.pull-request-number
+        run: |
+          echo "Pull Request criada com sucesso: #${{ steps.cpr.outputs.pull-request-number }}"
+
+      - name: Notificar erro
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.name,
+              body: 'Ocorreu um erro ao tentar criar a Pull Request automática. Por favor, verifique os logs do workflow para mais detalhes.'
+            })

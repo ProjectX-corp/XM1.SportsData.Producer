@@ -18,11 +18,15 @@ namespace XM1.SportsData.Producer.API.Configuration
                 services.AddLocalStack(configuration);
                 services.AddSingleton<IAmazonSecretsManager>(sp =>
                 {
+                    var localStackUrl = "https://localhost.localstack.cloud:4566";
                     var clientConfig = new AmazonSecretsManagerConfig
                     {
-                        ServiceURL = "http://localhost:4566" // LocalStack default URL
+                        ServiceURL = localStackUrl,
+                        UseHttp = true,
+                        AuthenticationRegion = "us-east-2"
                     };
-                    return new AmazonSecretsManagerClient(new BasicAWSCredentials("test", "test"), clientConfig);
+                    var awsCredentials = new BasicAWSCredentials("test", "test");
+                    return new AmazonSecretsManagerClient(awsCredentials, clientConfig);
                 });
             }
             else
@@ -35,8 +39,8 @@ namespace XM1.SportsData.Producer.API.Configuration
             services.AddSingleton<ISecretsManager, SecretsManager>();
 
             // Database
-            //var secretsManager = services.BuildServiceProvider().GetRequiredService<ISecretsManager>();
-            //var connectionString = secretsManager.GetConnectionString("DbSecret");
+            var secretsManager = services.BuildServiceProvider().GetRequiredService<ISecretsManager>();
+            var connectionString = secretsManager.GetConnectionString("DbSecret");
 
             services.AddDbContext<DataContext>((serviceProvider, options) =>
             {

@@ -12,40 +12,63 @@ namespace XM1.SportsData.Producer.API.Configuration
     {
         private readonly IAmazonSecretsManager _secretsManager;
         private readonly IConfiguration _configuration;
+        private readonly ILogger<SecretsManager> _logger;
 
-        public SecretsManager(IConfiguration configuration)
+
+        public SecretsManager(IConfiguration configuration, IAmazonSecretsManager secretsManager, ILogger<SecretsManager> logger)
         {
             _configuration = configuration;
-            _secretsManager = new AmazonSecretsManagerClient(RegionEndpoint.USEast2);
+            _secretsManager = secretsManager;
+            _logger = logger;
         }
 
-        public T GetSecret<T>(string secretName)
+        public T GetSecret<T>(string nomeDoSegredo)
         {
-            var response = _secretsManager.GetSecretValueAsync(new GetSecretValueRequest
+            try
             {
-                SecretId = secretName
-            }).GetAwaiter().GetResult();
+                _logger.LogInformation($"Tentando recuperar o segredo: {nomeDoSegredo}");
 
-            if (response.SecretString is null)
+                var requisicao = new GetSecretValueRequest { SecretId = nomeDoSegredo };
+                var resposta = _secretsManager.GetSecretValueAsync(requisicao).Result;
+
+                if (string.IsNullOrEmpty(resposta.SecretString))
+                {
+                    _logger.LogWarning($"O segredo {nomeDoSegredo} está vazio");
+                    throw new InvalidOperationException($"O segredo {nomeDoSegredo} está vazio");
+                }
+
+                _logger.LogInformation($"Segredo {nomeDoSegredo} recuperado com sucesso");
+
+                return DeserializarSegredo<T>(resposta.SecretString, nomeDoSegredo);
+            }
+            catch (AmazonSecretsManagerException ex)
             {
-                throw new Exception($"Secret {secretName} not found");
+                _logger.LogError(ex, $"Erro ao acessar o AWS Secrets Manager para o segredo {nomeDoSegredo}");
+                throw new InvalidOperationException($"Erro ao acessar o segredo {nomeDoSegredo}", ex);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Erro inesperado ao recuperar o segredo {nomeDoSegredo}");
+                throw new InvalidOperationException($"Erro inesperado ao recuperar o segredo {nomeDoSegredo}", ex);
+            }
+        }
+
+        private T DeserializarSegredo<T>(string conteudoDoSegredo, string nomeDoSegredo)
+        {
+            if (typeof(T) == typeof(string))
+            {
+                return (T)(object)conteudoDoSegredo;
             }
 
-            return JsonConvert.DeserializeObject<T>(response.SecretString);
+            try
+            {
+                return JsonConvert.DeserializeObject<T>(conteudoDoSegredo);
+            }
+            catch (System.Text.Json.JsonException ex)
+            {
+                _logger.LogError(ex, $"Erro ao desserializar o segredo {nomeDoSegredo}");
+                throw new InvalidOperationException($"Erro ao desserializar o segredo {nomeDoSegredo}", ex);
+            }
         }
-
-        public string GetConnectionString(string secretName)
-        {
-            var dbCredentials = GetSecret<String>(secretName);
-            return dbCredentials;
-        }
-    }
-
-    public class DbCredentials
-    {
-        public string Host { get; set; }
-        public string Database { get; set; }
-        public string Username { get; set; }
-        public string Password { get; set; }
     }
 }
