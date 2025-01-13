@@ -1,29 +1,51 @@
-name: Criar Pull Request Autom�tica
+name: Criar Pull Request Automático
 
 on:
   push:
     branches:
-      - 'feature/**'
+      - 'feature/**' # Monitora todas as branches para mudanças
 
 jobs:
-  create-pull-request:
+  criar-pull-request:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    
+
     steps:
-      - name: Checkout do c�digo
+      # Checkout do código
+      - name: Checkout do código
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Configurar Git
-        if: steps.check_branch.outputs.is_new_branch == 'false'
+      # Verificar se há mudanças no repositório
+      - name: Verificar alterações no código
+        id: check_changes
         run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
+          # Certificar-se de que estamos na branch correta
+          git checkout ${{ github.ref_name }}
+          
+          # Atualizar a branch local com as mudanças da remota
+          git fetch origin ${{ github.ref_name }}
+          git reset --hard origin/${{ github.ref_name }}
 
+          # Verificar alterações entre a branch atual e a base de comparação
+          if [ -z "$(git diff --name-only origin/development)" ]; then
+            echo "Nenhuma alteração detectada."
+            echo "has_changes=false" >> $GITHUB_ENV
+          else
+            echo "Alterações detectadas."
+            echo "has_changes=true" >> $GITHUB_ENV
+          fi
+
+      # Configurar Git (apenas se houver alterações)
+      - name: Configurar Git
+        if: env.has_changes == 'true'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+      # Criar Pull Request (apenas se houver alterações)
       - name: Criar Pull Request
-        if: steps.check_branch.outputs.is_new_branch == 'false'
+        if: env.has_changes == 'true'
         id: cpr
         uses: peter-evans/create-pull-request@v5
         with:
@@ -31,27 +53,29 @@ jobs:
           base: development
           title: 'feature: ${{ github.ref_name }}'
           body: |
-            Pull request autom�tica criada a partir da branch ${{ github.ref_name }}.
+            Pull request automática criada a partir da branch ${{ github.ref_name }}.
             
-            Por favor, revise as altera��es e fa�a merge se estiver tudo correto.
+            Por favor, revise as alterações e faça merge se estiver tudo correto.
           labels: feature, automated-pr
           branch: ${{ github.ref_name }}
           delete-branch: false
 
-      - name: Verificar cria��o da Pull Request
-        if: steps.check_branch.outputs.is_new_branch == 'false' && steps.cpr.outputs.pull-request-number
+      # Notificar sucesso na criação do Pull Request
+      - name: Verificar criação da Pull Request
+        if: env.has_changes == 'true' && steps.cpr.outputs.pull-request-number
         run: |
           echo "Pull Request criada com sucesso: #${{ steps.cpr.outputs.pull-request-number }}"
 
+      # Notificar erro em caso de falha no workflow
       - name: Notificar erro
         if: failure()
         uses: actions/github-script@v6
         with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.name,
-              body: 'Ocorreu um erro ao tentar criar a Pull Request autom�tica. Por favor, verifique os logs do workflow para mais detalhes.'
+              body: 'Ocorreu um erro ao tentar criar a Pull Request automática. Por favor, verifique os logs do workflow para mais detalhes.'
             })
