@@ -16,18 +16,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verificar se é branch válida para PR
-        id: check_branch
-        run: |
-          # Verifica se é o primeiro commit na branch (criação da branch)
-          if [[ $(git rev-list --count HEAD) -eq 1 ]]; then
-            echo "is_valid_for_pr=false" >> $GITHUB_OUTPUT
-            echo "Branch recém-criada sem commits adicionais. Cancelando o workflow."
-            exit 0
-          else
-            echo "is_valid_for_pr=true" >> $GITHUB_OUTPUT
-          fi
-
       - name: Configurar Git
         if: steps.check_branch.outputs.is_new_branch == 'false'
         run: |
