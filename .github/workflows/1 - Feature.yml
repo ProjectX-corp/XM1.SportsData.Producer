@@ -16,12 +16,23 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Verificar se é criação de branch
+        id: check_branch
+        run: |
+          if [[ $(git rev-list --count HEAD^..HEAD) -eq 1 ]] && [[ $(git rev-parse HEAD^) == $(git rev-parse HEAD~) ]]; then
+            echo "is_new_branch=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_new_branch=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Configurar Git
+        if: steps.check_branch.outputs.is_new_branch == 'false'
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
 
       - name: Criar Pull Request
+        if: steps.check_branch.outputs.is_new_branch == 'false'
         id: cpr
         uses: peter-evans/create-pull-request@v5
         with:
@@ -37,7 +48,7 @@ jobs:
           delete-branch: false
 
       - name: Verificar criação da Pull Request
-        if: steps.cpr.outputs.pull-request-number
+        if: steps.check_branch.outputs.is_new_branch == 'false' && steps.cpr.outputs.pull-request-number
         run: |
           echo "Pull Request criada com sucesso: #${{ steps.cpr.outputs.pull-request-number }}"
 
