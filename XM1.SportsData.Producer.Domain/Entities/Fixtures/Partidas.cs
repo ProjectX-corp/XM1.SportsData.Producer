@@ -19,6 +19,7 @@ namespace XM1.SportsData.Producer.Domain.Entities.Fixtures
         public int? GolsTimeCasa { get; set; }
         public int? GolsTimeVisitante { get; set; }
         public bool? IsResultadoCompleto { get; set; }
+
         public bool? AoVivo { get; set; }
     }
 }
