@@ -1,4 +1,4 @@
-name: Criar Pull Request Automática
+name: Criar Pull Request Automï¿½tica
 
 on:
   push:
@@ -11,17 +11,31 @@ jobs:
     timeout-minutes: 10
     
     steps:
-      - name: Checkout do código
+      - name: Checkout do cï¿½digo
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
+      - name: Verificar se Ã© branch vÃ¡lida para PR
+        id: check_branch
+        run: |
+          # Verifica se Ã© o primeiro commit na branch (criaÃ§Ã£o da branch)
+          if [[ $(git rev-list --count HEAD) -eq 1 ]]; then
+            echo "is_valid_for_pr=false" >> $GITHUB_OUTPUT
+            echo "Branch recÃ©m-criada sem commits adicionais. Cancelando o workflow."
+            exit 0
+          else
+            echo "is_valid_for_pr=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Configurar Git
+        if: steps.check_branch.outputs.is_new_branch == 'false'
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
 
       - name: Criar Pull Request
+        if: steps.check_branch.outputs.is_new_branch == 'false'
         id: cpr
         uses: peter-evans/create-pull-request@v5
         with:
@@ -29,15 +43,15 @@ jobs:
           base: development
           title: 'feature: ${{ github.ref_name }}'
           body: |
-            Pull request automática criada a partir da branch ${{ github.ref_name }}.
+            Pull request automï¿½tica criada a partir da branch ${{ github.ref_name }}.
             
-            Por favor, revise as alterações e faça merge se estiver tudo correto.
+            Por favor, revise as alteraï¿½ï¿½es e faï¿½a merge se estiver tudo correto.
           labels: feature, automated-pr
           branch: ${{ github.ref_name }}
           delete-branch: false
 
-      - name: Verificar criação da Pull Request
-        if: steps.cpr.outputs.pull-request-number
+      - name: Verificar criaï¿½ï¿½o da Pull Request
+        if: steps.check_branch.outputs.is_new_branch == 'false' && steps.cpr.outputs.pull-request-number
         run: |
           echo "Pull Request criada com sucesso: #${{ steps.cpr.outputs.pull-request-number }}"
 
@@ -51,5 +65,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.name,
-              body: 'Ocorreu um erro ao tentar criar a Pull Request automática. Por favor, verifique os logs do workflow para mais detalhes.'
+              body: 'Ocorreu um erro ao tentar criar a Pull Request automï¿½tica. Por favor, verifique os logs do workflow para mais detalhes.'
             })
