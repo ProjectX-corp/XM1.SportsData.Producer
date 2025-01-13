@@ -20,14 +20,22 @@ jobs:
       - name: Verificar alterações no código
         id: check_changes
         run: |
-          git fetch origin
-          if [ -z "$(git diff --name-only origin/${{ github.ref_name }})" ]; then
+          # Certificar-se de que estamos na branch correta
+          git checkout ${{ github.ref_name }}
+          
+          # Atualizar a branch local com as mudanças da remota
+          git fetch origin ${{ github.ref_name }}
+          git reset --hard origin/${{ github.ref_name }}
+
+          # Verificar alterações entre a branch atual e a base de comparação
+          if [ -z "$(git diff --name-only origin/development)" ]; then
             echo "Nenhuma alteração detectada."
             echo "has_changes=false" >> $GITHUB_ENV
           else
             echo "Alterações detectadas."
             echo "has_changes=true" >> $GITHUB_ENV
           fi
+
 
       # Configurar Git (apenas se houver alterações)
       - name: Configurar Git
